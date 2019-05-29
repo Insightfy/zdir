@@ -12,11 +12,12 @@
 	$dir = $_GET['dir'];
 	$dir = strip_tags($dir);
 	$dir = str_replace("\\","/",$dir);
+	$rel_path = $thedir."/".$dir;
 	//获取markdown文件地址
 	
 	//echo $readme;
 	//对目录进行过滤
-	if((stripos($dir,'./') === 0) || (stripos($dir,'../')) || (stripos($dir,'../') === 0)){
+	if((stripos($dir,'./') === 0) || (stripos($dir,'../')) || (stripos($dir,'../') === 0) || (stripos($dir,'..') === 0) || (stripos($dir,'..'))){
 		echo '非法请求！';
 		exit;
 	}
@@ -27,10 +28,41 @@
 		$listdir = scandir($thedir);
 		$readme = $thedir.'/readme.md';
 	}
+	//如果目录不存在
+	else if(!is_dir($rel_path)){
+		echo '目录不存在，3s后返回首页！';
+		header("Refresh:3;url=index.php");
+		exit;
+	}
 	else{
 		$listdir = scandir($thedir."/".$dir);
 		$readme = $thedir."/".$dir.'/readme.md';
 	}
+	//遍历目录和文件，并进行排序，文件夹排前面
+	$newdir = array();
+	$newfile = array();
+	foreach( $listdir as $value )
+	{
+		//如果参数为空
+		if(!isset($dir)){
+			$tmp_path = $thedir;
+		}
+		if(isset($dir)){
+			$tmp_path = $thedir.'/'.$dir.'/'.$value;
+		}
+		$tmp_path = str_replace("///","/",$tmp_path);
+		//echo $tmp_path."<br />";
+		//如果是文件夹
+		if(is_dir($tmp_path)){
+			array_push($newdir,$value);
+		}
+		else{
+			array_push($newfile,$value);
+		}
+	}
+	//两个数组顺序合并
+	$listdir = array_merge($newdir,$newfile);
+	
 	$readme = str_replace('\\','/',$readme);
 	//计算上级目录
 	function updir($dir){
@@ -66,6 +98,12 @@
 	<div id="navigation" class = "layui-hide-xs">
 		<div class="layui-container">
 			<div class="layui-row">
+				<!--滚动消息-->
+				<div id = "msg" class="layui-col-lg12">
+					<i class="layui-icon layui-icon-notice" style="color: #FF5722;font-weight:bold;"></i> 
+					<span id = "msg-content"></span>
+				</div>
+				<!--滚动消息END-->
 				<div class="layui-col-lg12">
 					<p>
 						当前位置：<a href="./">首页</a> 
@@ -133,11 +171,10 @@
 						    $ctime = date("Y-m-d H:i",$ctime);
 
 						    
-						    //搜索忽略的目录
-						    if(array_search($showdir,$ignore)) {
+						    //搜索忽略的目录，如果包含.php 一并排除
+						    if(array_search($showdir,$ignore) || strripos($showdir,".php")) {
 							    continue;
 						    }
-						    
 						    //判读文件是否是目录,当前路径 + 获取到的路径 + 遍历后的目录
 						    if(is_dir($thedir.'/'.$dir.'/'.$showdir)){
 							    $suffix = '';
@@ -204,6 +241,10 @@
 							   	?>
 							   	<a href="<?php echo $url ?>" id = "url<?php echo $i; ?>" onmouseover = "showimg(<?php echo $i; ?>,'<?php echo $url; ?>')" onmouseout = "hideimg(<?php echo $i; ?>)"><i class="<?php echo $ico; ?>"></i> <?php echo $showdir; ?></a>
 							   	<div class = "showimg" id = "show<?php echo $i; ?>"><img src="" id = "imgid<?php echo $i; ?>"></div>
+							   	<!--如果是.exe文件-->
+							   	<?php }elseif($zdir->is_exe($fullpath)){ ?>
+								<a href="<?php echo $url ?>" id = "url<?php echo $i; ?>"><i class="<?php echo $ico; ?>"></i> <?php echo $showdir; ?></a>
+							   	<!--.exe文件END-->
 							   	<?php }else{ ?>
 							    <a href="<?php echo $url ?>" id = "url<?php echo $i; ?>"><i class="<?php echo $ico; ?>"></i> <?php echo $showdir; ?></a>
 							    <?php } ?>
@@ -240,9 +281,7 @@
 								<a href="javascript:;" class = "layui-btn layui-btn-xs" onclick = "copy('<?php echo $url ?>')">复制</a>
 							    <?php } ?>
 							    <!--如果是管理模式-->
-							    <?php if((isset($admin)) && ($fsize != '-')) { ?>
-									<a href="javascript:;" class = "layui-btn layui-btn-xs layui-btn-danger" onclick = "delfile(<?php echo $i; ?>,'<?php echo $showdir; ?>','<?php echo $fullpath; ?>')">删除</a>
-							    <?php } ?>
+							    <!--管理模式END-->
 							    <!--如果是markdown文件-->
 							    <?php if(($suffix == 'md') && ($suffix != null)){ ?>
 								&nbsp;&nbsp;<a href="javascript:;" onclick = "newmd('<?php echo $fullpath; ?>')" title = "点击查看"><i class="fa fa-eye fa-lg"></i></a> 
